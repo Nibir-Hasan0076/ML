@@ -1,0 +1,154 @@
+"""Step 3 - Baseline model comparison.
+
+Compares LogisticRegression, RandomForest, ExtraTrees, XGBoost, LightGBM,
+CatBoost, HistGradientBoosting and LinearSVC using Stratified 5-fold CV on the
+training data, for the chosen feature subset, across class-imbalance strategies.
+
+Saves: model_comparison.csv and a latex-friendly table.
+"""
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, \
+    HistGradientBoostingClassifier
+from sklearn.svm import LinearSVC
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.metrics import roc_auc_score, average_precision_score, \
+    confusion_matrix
+from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
+
+import pipeline as P
+import encoding as ENC
+
+SUBSET = "Model_C_top15"
+
+
+def make_models(scale_pos_weight=None, class_weight=None):
+    """Return dict of name -> estimator (wrapped). CatBoost/LGBM/XGB handle
+    imbalance natively via scale_pos_weight."""
+    models = {
+        "LogisticRegression": LogisticRegression(
+            max_iter=3000, class_weight=class_weight, random_state=P.SEED),
+        "RandomForest": RandomForestClassifier(
+            n_estimators=400, class_weight=class_weight, random_state=P.SEED,
+            n_jobs=-1),
+        "ExtraTrees": ExtraTreesClassifier(
+            n_estimators=400, class_weight=class_weight, random_state=P.SEED,
+            n_jobs=-1),
+        "HistGradientBoosting": HistGradientBoostingClassifier(
+            random_state=P.SEED),
+        "LinearSVC": LinearSVC(max_iter=5000, random_state=P.SEED),
+        "XGBoost": XGBClassifier(
+            n_estimators=400, learning_rate=0.05, max_depth=4,
+            subsample=0.8, colsample_bytree=0.8, eval_metric="logloss",
+            scale_pos_weight=scale_pos_weight, random_state=P.SEED,
+            use_label_encoder=False, verbosity=0),
+        "LightGBM": LGBMClassifier(
+            n_estimators=400, learning_rate=0.05, num_leaves=15,
+            scale_pos_weight=scale_pos_weight, random_state=P.SEED,
+            verbose=-1),
+        "CatBoost": CatBoostClassifier(
+            iterations=400, learning_rate=0.05, depth=5,
+            scale_pos_weight=scale_pos_weight, random_state=P.SEED,
+            verbose=0, allow_writing_files=False),
+    }
+    return models
+
+
+def cross_evaluate(models, X, y, cv):
+    """Run 5-fold CV returning per-model metric means. X and y are numpy."""
+    rows = []
+    for name, est in models.items():
+        try:
+            scores = {"roc_auc": [], "pr_auc": [], "acc": [], "f1": [],
+                      "sens": [], "spec": [], "mcc": []}
+            for tr, va in cv.split(X, y):
+                est.fit(X[tr], y[tr])
+                prob = est.predict_proba(X[va])[:, 1] \
+                    if hasattr(est, "predict_proba") else \
+                    est.decision_function(X[va])
+                if name == "LinearSVC":
+                    prob = 1 / (1 + np.exp(-prob))
+                pred = (prob >= 0.5).astype(int)
+                cm = confusion_matrix(y[va], pred)
+                tn, fp, fn, tp = cm.ravel()
+                scores["roc_auc"].append(roc_auc_score(y[va], prob))
+                scores["pr_auc"].append(average_precision_score(y[va], prob))
+                scores["acc"].append((tp + tn) / (tp + tn + fp + fn))
+                scores["sens"].append(tp / max(1, tp + fn))
+                scores["spec"].append(tn / max(1, tn + fp))
+                prec = tp / max(1, tp + fp)
+                rec = tp / max(1, tp + fn)
+                scores["f1"].append(2 * prec * rec / max(1e-9, prec + rec))
+                scores["mcc"].append((tp * tn - fp * fn) / max(1e-9, (
+                    (tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5))
+            rows.append({"model": name,
+                         "roc_auc": np.mean(scores["roc_auc"]),
+                         "pr_auc": np.mean(scores["pr_auc"]),
+                         "accuracy": np.mean(scores["acc"]),
+                         "sensitivity": np.mean(scores["sens"]),
+                         "specificity": np.mean(scores["spec"]),
+                         "f1": np.mean(scores["f1"]),
+                         "mcc": np.mean(scores["mcc"])})
+        except Exception as e:
+            print(f"  !! {name} failed: {e}")
+    return pd.DataFrame(rows)
+
+
+def main():
+    df = P.feature_engineer(P.load_raw())
+    label = df.dropna(subset=["target"]).copy()
+    y = label["target"].astype(int).values
+    cols = P.load_chosen_subset(SUBSET)
+
+    # Encode once for the coarse model-comparison screen. NOTE: this screen only
+    # ranks models; the final pipeline re-fits preprocessing strictly on train.
+    pre, _, _ = ENC.make_preprocessor(
+        [c for c in cols if c in ENC.NUMERICAL_COLS],
+        [c for c in cols if c in ENC.CATEGORICALS])
+    X = pre.fit_transform(label[cols])
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=P.SEED)
+
+    # baseline prevalence
+    print(f"Using subset: {SUBSET}  |  features={len(cols)}")
+    print(f"Train set size (labelled) = {len(y)}  "
+          f"positive={y.sum()} ({100*y.mean():.1f}%)")
+
+    print("\n===== CLASS IMBALANCE STRATEGY SCREEN (XGBoost, 5-fold CV) =====")
+    spw = (y == 0).sum() / y.sum()   # negative/positive
+    strategies = {
+        "no_weight": None,
+        "moderate_scale_pos_weight_1.5": 1.5,
+        "scale_pos_weight_ratio": round(spw, 3),
+        "scale_pos_weight_2.0x": 2.0,
+    }
+    strat_rows = []
+    for name, sp in strategies.items():
+        m = {"XGBoost": make_models(scale_pos_weight=sp)["XGBoost"]}
+        r = cross_evaluate(m, X, y, cv)
+        r["strategy"] = name
+        strat_rows.append(r)
+    strat_df = pd.concat(strat_rows, ignore_index=True)
+    strat_df = strat_df[["strategy", "roc_auc", "pr_auc", "accuracy",
+                         "sensitivity", "specificity", "f1", "mcc"]]
+    print(strat_df.to_string(index=False))
+    strat_df.to_csv(os.path.join(P.OUT, "imbalance_strategy.csv"), index=False)
+
+    print("\n===== BASELINE MODEL COMPARISON (5-fold CV) =====")
+    models = make_models(class_weight="balanced")
+    result = cross_evaluate(models, X, y, cv)
+    result = result.sort_values("roc_auc", ascending=False)
+    print(result.round(4).to_string(index=False))
+    result.to_csv(os.path.join(P.OUT, "model_comparison.csv"), index=False)
+    print("\nSaved -> output/model_comparison.csv")
+
+
+if __name__ == "__main__":
+    main()

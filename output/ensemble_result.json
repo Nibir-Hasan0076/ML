@@ -1,0 +1,23 @@
+{
+  "model": "simple_average_ensemble_XGB_CatBoost_LightGBM",
+  "threshold": 0.42,
+  "metrics": {
+    "TN": 256,
+    "FP": 222,
+    "FN": 58,
+    "TP": 814,
+    "accuracy": 0.7925925925925926,
+    "ROC_AUC": 0.8510014010978466,
+    "PR_AUC": 0.9135084842349301,
+    "sensitivity": 0.9334862385321101,
+    "specificity": 0.5355648535564853,
+    "precision": 0.7857142857142857,
+    "NPV": 0.8152866242038217,
+    "F1": 0.8532494758909852,
+    "balanced_accuracy": 0.7345255460442977,
+    "MCC": 0.5309426834822454,
+    "brier": 0.14723967344638575
+  },
+  "baseline_acc": 0.7881481481481482,
+  "baseline_threshold": 0.44
+}
