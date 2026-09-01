@@ -63,7 +63,7 @@ def per_district_outbreak_risk():
 
     # normalize our upazila -> official ADM3 name
     def nmu(s):
-        return GEO.norm_district(s).title()
+        return GEO.norm_district(s)
     nm = {}
     import re
     for u in cells["UPZMUNCC"].unique():
@@ -211,18 +211,25 @@ def main():
     plt.close(fig)
 
     # console summary
-    top_burden = tbl.sort_values("measles_cases", ascending=False).head(8)
-    top_risk = tbl.sort_values("outbreak_risk", ascending=False).head(8)
+    top_burden = tbl.dropna(subset=["measles_cases"]).sort_values(
+        "measles_cases", ascending=False).head(8)
+    top_risk = tbl.dropna(subset=["outbreak_risk"]).sort_values(
+        "outbreak_risk", ascending=False).head(8)
     print("=" * 70)
     print("BANGLADESH MAP - affected areas & outbreak risk (2026)")
     print("=" * 70)
     print("\nTop districts by confirmed measles cases:")
     for _, r in top_burden.iterrows():
-        print(f"  {r['shapeName']:15} {int(r['measles_cases']):5d} cases")
+        print(f"  {r['shapeName']:20} {int(r['measles_cases']):5d} cases")
     print("\nTop districts by outbreak risk (Step-14 ensemble):")
     for _, r in top_risk.iterrows():
-        print(f"  {r['shapeName']:15} risk={r['outbreak_risk']:.2f}  "
+        print(f"  {r['shapeName']:20} risk={r['outbreak_risk']:.3f}  "
               f"outbreak_weeks={int(r['outbreak_weeks'])}/{int(r['n_weeks'])}")
+    # matched / unmatched summary
+    n_matched_burden = int(tbl["measles_cases"].notna().sum())
+    n_matched_risk = int(tbl["outbreak_risk"].notna().sum())
+    print(f"\nDistricts matched: burden={n_matched_burden}/64  "
+          f"outbreak_risk={n_matched_risk}/64")
     print("\nSaved: figures/bangladesh_map.png, "
           "figures/bangladesh_burden_map.png, "
           "figures/bangladesh_outbreak_risk_map.png")

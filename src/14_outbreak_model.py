@@ -210,8 +210,21 @@ def assemble_Xy(feats, unit_col):
 def run_ensemble(X, y, cols, feats):
     """Simple-average GBM ensemble at upazila level (XGB + CatBoost + LightGBM),
     with correct out-of-fold validation for threshold selection and a final
-    fit on all data for the combined model."""
+    fit on all data for the combined model.
+
+    Uses class weights (scale_pos_weight) to address the severe class
+    imbalance (~7% outbreak cells).  Threshold is selected to maximise F1
+    on OOF predictions, giving a better balance of sensitivity vs specificity.
+    """
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=P.SEED)
+
+    # Compute class weight to penalise missed outbreaks
+    n_pos = int(y.sum())
+    n_neg = len(y) - n_pos
+    spw = n_neg / max(1, n_pos)
+    print(f"  Class imbalance: {n_pos}/{len(y)} outbreak cells "
+          f"({100*n_pos/len(y):.1f}%), scale_pos_weight={spw:.2f}")
+
     # out-of-fold probabilities
     oof = np.zeros(len(y))
     names = ["XGBoost", "CatBoost", "LightGBM"]
@@ -219,20 +232,35 @@ def run_ensemble(X, y, cols, feats):
         probs = []
         for n in names:
             bm = make_models()[n]
+            # Apply class weight to gradient boosting models
+            if hasattr(bm, "scale_pos_weight"):
+                bm.set_params(scale_pos_weight=spw)
             bm.fit(X[tr], y[tr])
             probs.append(bm.predict_proba(X[va])[:, 1])
         oof[va] = np.mean(probs, axis=0)
 
-    # threshold selection on OOF to maximise accuracy
-    best_t, best_acc = 0.5, -1
-    for t in np.round(np.arange(0.30, 0.70, 0.01), 2):
-        acc = ((oof >= t) == y).mean()
-        if acc > best_acc:
-            best_acc, best_t = acc, t
+    # threshold selection on OOF to maximise F1 (better than accuracy for
+    # imbalanced data, since accuracy is dominated by the majority class)
+    best_t, best_f1 = 0.5, -1
+    for t in np.round(np.arange(0.10, 0.80, 0.01), 2):
+        pred = (oof >= t).astype(int)
+        tp = int(((pred == 1) & (y == 1)).sum())
+        fp = int(((pred == 1) & (y == 0)).sum())
+        fn = int(((pred == 0) & (y == 1)).sum())
+        prec = tp / max(1, tp + fp)
+        rec = tp / max(1, tp + fn)
+        f1 = 2 * prec * rec / max(1e-9, prec + rec)
+        if f1 > best_f1:
+            best_f1, best_t = f1, t
 
-    # final models fit on all data
+    # Compute accuracy at best threshold for backward compatibility
+    best_acc = ((oof >= best_t) == y).mean()
+
+    # final models fit on all data (with class weights)
     models = {n: make_models()[n] for n in names}
     for n, m in models.items():
+        if hasattr(m, "scale_pos_weight"):
+            m.set_params(scale_pos_weight=spw)
         m.fit(X, y)
 
     return models, best_t, best_acc, oof
@@ -358,23 +386,24 @@ def main():
         "n_cells": int(len(yy)),
         "outbreak_cells": int(yy.sum()),
         "ensemble_models": ["XGBoost", "CatBoost", "LightGBM"],
+        "class_weights": "scale_pos_weight = neg/pos = " + f"{int(yy.sum() == 0 and 1 or (len(yy) - yy.sum()) / yy.sum()):.1f}",
         "threshold": float(best_t),
+        "threshold_criterion": "maximise F1 on OOF (better than accuracy for imbalanced data)",
         "metrics_oof": {
-            "accuracy": oof_acc, "ROC_AUC": float(oof_auc),
-            "PR_AUC": float(oof_prauc), "sensitivity": float(sens),
-            "specificity": float(spec), "precision": float(prec),
-            "F1": float(f1), "MCC": float(mcc),
+            "accuracy": oof_acc, "ROC_AUC": float(oof_auc), "PR_AUC": float(oof_prauc), "sensitivity": float(sens), "specificity": float(spec), "precision": float(prec), "F1": float(f1), "MCC": float(mcc),
             "TN": int(tn), "FP": int(fp), "FN": int(fn), "TP": int(tp),
         },
         "features": cols,
         "note": ("All data fall in 2026 (weeks 1-22). This is a cross-sectional "
                  "outbreak-status model per unit-week, NOT a multi-year "
-                 "temporal forecast (no year-to-year lag available)."),
+                 "temporal forecast (no year-to-year lag available). "
+                 "Class weights (scale_pos_weight) are applied to address "
+                 "severe class imbalance (~7% outbreak cells)."),
     }
     with open(os.path.join(OUT_DIR, "upazila_ensemble_result.json"), "w") as f:
         json.dump(result, f, indent=2, default=float)
 
-    print(f"\nThreshold (locked on OOF, max accuracy): t={best_t}  "
+    print(f"\nThreshold (locked on OOF, max F1): t={best_t}  "
           f"OOF acc={oof_acc:.4f}")
     print(f"OOF ROC-AUC={oof_auc:.4f}  PR-AUC={oof_prauc:.4f}")
     print(f"TN={tn} FP={fp} FN={fn} TP={tp}  sens={sens:.3f} spec={spec:.3f} "

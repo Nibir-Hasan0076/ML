@@ -37,9 +37,16 @@ DIVISION_ALIAS = {
 }
 
 
+_TITLE_FIX = {
+    "Cox'S Bazar": "Cox's Bazar",
+}
+
+
 def norm_district(s):
     s = str(s).strip().upper().replace(" CC.", "").replace(" CC", "")
-    return DISTRICT_ALIAS.get(s, s)
+    s = DISTRICT_ALIAS.get(s, s)
+    s = s.title()  # Title Case to match geoBoundaries shapeName
+    return _TITLE_FIX.get(s, s)
 
 
 def norm_division(s):

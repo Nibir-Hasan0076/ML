@@ -34,7 +34,7 @@ _CANDIDATES = [
     os.path.join("archive", "BAN_MR_FF_SEARO_EW-22_2026.xlsx"),
     os.path.join(os.path.dirname(os.path.dirname(__file__)),
                  "BAN_MR_FF_SEARO_EW-22_2026.xlsx"),
-    r"E:\archive\BAN_MR_FF_SEARO_EW-22_2026.xlsx",  # Windows fallback
+    r"F:\nibir\ML\BAN_MR_FF_SEARO_EW-22_2026.xlsx",  # Windows fallback
 ]
 
 

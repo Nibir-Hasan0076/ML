@@ -9,20 +9,22 @@
     "CatBoost",
     "LightGBM"
   ],
-  "threshold": 0.54,
+  "class_weights": "scale_pos_weight = neg/pos = 12.0",
+  "threshold": 0.38,
+  "threshold_criterion": "maximise F1 on OOF (better than accuracy for imbalanced data)",
   "metrics_oof": {
-    "accuracy": 0.9405442713468743,
-    "ROC_AUC": 0.8973162575498067,
-    "PR_AUC": 0.5193201765564759,
-    "sensitivity": 0.2718707940780619,
-    "specificity": 0.9934035535695287,
-    "precision": 0.7651515151515151,
-    "F1": 0.4011916583912612,
-    "MCC": 0.4341042248299682,
-    "TN": 9337,
-    "FP": 62,
-    "FN": 541,
-    "TP": 202
+    "accuracy": 0.9162887004535595,
+    "ROC_AUC": 0.8952555303197256,
+    "PR_AUC": 0.5168567740026855,
+    "sensitivity": 0.5720053835800808,
+    "specificity": 0.943504628151931,
+    "precision": 0.4445606694560669,
+    "F1": 0.5002942907592701,
+    "MCC": 0.4597059968519574,
+    "TN": 8868,
+    "FP": 531,
+    "FN": 318,
+    "TP": 425
   },
   "features": [
     "wk",
@@ -34,5 +36,5 @@
     "wk_cos",
     "division_lvl"
   ],
-  "note": "All data fall in 2026 (weeks 1-22). This is a cross-sectional outbreak-status model per unit-week, NOT a multi-year temporal forecast (no year-to-year lag available)."
+  "note": "All data fall in 2026 (weeks 1-22). This is a cross-sectional outbreak-status model per unit-week, NOT a multi-year temporal forecast (no year-to-year lag available). Class weights (scale_pos_weight) are applied to address severe class imbalance (~7% outbreak cells)."
 }
