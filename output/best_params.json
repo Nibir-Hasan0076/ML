@@ -1,15 +1,15 @@
 {
   "model": "XGBoost",
   "params": {
-    "n_estimators": 529,
-    "learning_rate": 0.015299952363207992,
-    "max_depth": 8,
+    "n_estimators": 399,
+    "learning_rate": 0.05987458467603752,
+    "max_depth": 4,
     "min_child_weight": 1,
-    "subsample": 0.8920106152706379,
-    "colsample_bytree": 0.9031434149124564,
-    "gamma": 1.4996707758439767,
-    "reg_alpha": 0.007950780051308231,
-    "reg_lambda": 0.021838843181509623,
-    "scale_pos_weight": 0.9688569391929069
+    "subsample": 0.8094696074391898,
+    "colsample_bytree": 0.7364004765695923,
+    "gamma": 0.5168801631060207,
+    "reg_alpha": 0.00023879443830558103,
+    "reg_lambda": 0.013072853153606097,
+    "scale_pos_weight": 0.8241462654310625
   }
 }

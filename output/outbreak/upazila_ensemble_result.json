@@ -1,0 +1,38 @@
+{
+  "level": "UPZMUNCC",
+  "outbreak_definition": ">= 2 confirmed cases / unit-week",
+  "n_units": 461,
+  "n_cells": 10142,
+  "outbreak_cells": 743,
+  "ensemble_models": [
+    "XGBoost",
+    "CatBoost",
+    "LightGBM"
+  ],
+  "threshold": 0.54,
+  "metrics_oof": {
+    "accuracy": 0.9405442713468743,
+    "ROC_AUC": 0.8973162575498067,
+    "PR_AUC": 0.5193201765564759,
+    "sensitivity": 0.2718707940780619,
+    "specificity": 0.9934035535695287,
+    "precision": 0.7651515151515151,
+    "F1": 0.4011916583912612,
+    "MCC": 0.4341042248299682,
+    "TN": 9337,
+    "FP": 62,
+    "FN": 541,
+    "TP": 202
+  },
+  "features": [
+    "wk",
+    "lag1",
+    "lag2",
+    "roll3",
+    "prev_active",
+    "wk_sin",
+    "wk_cos",
+    "division_lvl"
+  ],
+  "note": "All data fall in 2026 (weeks 1-22). This is a cross-sectional outbreak-status model per unit-week, NOT a multi-year temporal forecast (no year-to-year lag available)."
+}

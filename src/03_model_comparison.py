@@ -19,7 +19,10 @@ from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import StratifiedKFold, cross_validate
 from sklearn.metrics import roc_auc_score, average_precision_score, \
-    confusion_matrix
+    confusion_matrix, roc_curve
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
 from catboost import CatBoostClassifier
@@ -102,6 +105,90 @@ def cross_evaluate(models, X, y, cv):
     return pd.DataFrame(rows)
 
 
+def plot_roc_per_model(models, X, y, cv, tag=""):
+    """Fit each model once on the CV train folds, average the ROC curve over
+    the test folds, then save an individual ROC plot per model."""
+    os.makedirs(os.path.join(P.FIG, "roc_per_model"), exist_ok=True)
+    mean_fpr = np.linspace(0, 1, 100)
+    for name, est in models.items():
+        tprs = []
+        fold_fprs = []
+        fold_tprs = []
+        aucs = []
+        try:
+            for tr, va in cv.split(X, y):
+                est.fit(X[tr], y[tr])
+                prob = est.predict_proba(X[va])[:, 1] \
+                    if hasattr(est, "predict_proba") else \
+                    est.decision_function(X[va])
+                if name == "LinearSVC":
+                    prob = 1 / (1 + np.exp(-prob))
+                fpr, tpr, _ = roc_curve(y[va], prob)
+                aucs.append(roc_auc_score(y[va], prob))
+                fold_fprs.append(fpr)
+                fold_tprs.append(tpr)
+                tprs.append(np.interp(mean_fpr, fpr, tpr))
+                tprs[-1][0] = 0.0
+            mean_tpr = np.mean(tprs, axis=0)
+            mean_tpr[-1] = 1.0
+            mean_auc = np.mean(aucs)
+            fig, ax = plt.subplots(figsize=(5.5, 5.5))
+            for ffpr, ftpr in zip(fold_fprs, fold_tprs):
+                ax.plot(ffpr, ftpr, alpha=0.15, color="gray", lw=1)
+            ax.plot(mean_fpr, mean_tpr, color="blue", lw=2,
+                    label=f"mean ROC (AUC={mean_auc:.3f})")
+            ax.plot([0, 1], [0, 1], "k--", lw=1, label="Chance")
+            ax.set_xlabel("False Positive Rate")
+            ax.set_ylabel("True Positive Rate")
+            ax.set_title(f"ROC Curve - {name}{tag}")
+            ax.legend(loc="lower right")
+            fig.tight_layout()
+            fname = f"{name.replace(' ', '_')}_roc.png"
+            fig.savefig(os.path.join(P.FIG, "roc_per_model", fname), dpi=150)
+            plt.close(fig)
+            print(f"  saved roc_per_model/{fname}  (CV AUC={mean_auc:.3f})")
+        except Exception as e:
+            print(f"  !! {name} ROC failed: {e}")
+
+
+def plot_roc_combined(models, X, y, cv, tag=""):
+    """Overlay every model's mean CV ROC curve on a single figure."""
+    mean_fpr = np.linspace(0, 1, 100)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.plot([0, 1], [0, 1], "k--", lw=1, label="Chance")
+    for name, est in models.items():
+        tprs = []
+        aucs = []
+        try:
+            for tr, va in cv.split(X, y):
+                est.fit(X[tr], y[tr])
+                prob = est.predict_proba(X[va])[:, 1] \
+                    if hasattr(est, "predict_proba") else \
+                    est.decision_function(X[va])
+                if name == "LinearSVC":
+                    prob = 1 / (1 + np.exp(-prob))
+                fpr, tpr, _ = roc_curve(y[va], prob)
+                aucs.append(roc_auc_score(y[va], prob))
+                tprs.append(np.interp(mean_fpr, fpr, tpr))
+                tprs[-1][0] = 0.0
+            mean_tpr = np.mean(tprs, axis=0)
+            mean_tpr[-1] = 1.0
+            mean_auc = np.mean(aucs)
+            ax.plot(mean_fpr, mean_tpr, lw=2,
+                    label=f"{name} (AUC={mean_auc:.3f})")
+        except Exception as e:
+            print(f"  !! {name} combined ROC failed: {e}")
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title(f"Combined ROC Comparison{tag}")
+    ax.legend(loc="lower right", fontsize=8)
+    fig.tight_layout()
+    fname = "roc_combined.png" + (f"_{tag}" if tag else "")
+    fig.savefig(os.path.join(P.FIG, "roc_per_model", fname), dpi=150)
+    plt.close(fig)
+    print(f"\nSaved combined ROC -> figures/roc_per_model/{fname}")
+
+
 def main():
     df = P.feature_engineer(P.load_raw())
     label = df.dropna(subset=["target"]).copy()
@@ -148,6 +235,11 @@ def main():
     print(result.round(4).to_string(index=False))
     result.to_csv(os.path.join(P.OUT, "model_comparison.csv"), index=False)
     print("\nSaved -> output/model_comparison.csv")
+
+    print("\n===== ROC CURVES (per model, 5-fold CV) =====")
+    plot_roc_per_model(models, X, y, cv)
+    plot_roc_combined(models, X, y, cv)
+    print("Saved -> figures/roc_per_model/")
 
 
 if __name__ == "__main__":

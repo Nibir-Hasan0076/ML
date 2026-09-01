@@ -24,7 +24,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.metrics import (confusion_matrix, ConfusionMatrixDisplay,
                              roc_auc_score, average_precision_score,
-                             brier_score_loss)
+                             brier_score_loss, roc_curve)
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
@@ -126,6 +126,24 @@ def main():
           f"{roc_auc_score(yte, p0):.4f}  FP={fp0} FN={fn0}")
     print("-" * 70)
     print(f"ACCURACY IMPROVEMENT: {acc - acc0:+.4f} (+{(acc - acc0)*100:+.2f} pp)")
+
+    # ---- ROC curve for the ensemble (and single XGBoost baseline) ----
+    fig, ax = plt.subplots(figsize=(5.5, 5.5))
+    fpr_e, tpr_e, _ = roc_curve(yte, pt_avg)
+    ax.plot(fpr_e, tpr_e, lw=2,
+            label=f"Ensemble (AUC={auc:.3f})")
+    p0_test = single_model.predict_proba(Xte)[:, 1]
+    fpr0, tpr0, _ = roc_curve(yte, p0_test)
+    ax.plot(fpr0, tpr0, lw=1.5, ls="--",
+            label=f"Single XGBoost (AUC={roc_auc_score(yte, p0_test):.3f})")
+    ax.plot([0, 1], [0, 1], "k--", lw=1, label="Chance")
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title("ROC Curve - Ensemble (XGB+CatBoost+LightGBM)")
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    fig.savefig(os.path.join(P.FIG, "ensemble_roc_curve.png"), dpi=150)
+    plt.close(fig)
 
     # ---- Save artefacts ----
     result = {

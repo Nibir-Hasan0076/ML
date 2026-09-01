@@ -2,14 +2,14 @@ epiweek
 upzmunc
 age
 district
-fever_duration
 division
 rash_duration
+fever_duration
 vax_status
 doses_mcv
 doses_rcv
 sex
 invest_lag
 ccc
-rash_gte3
+fever_gte7
 fever_and_rash

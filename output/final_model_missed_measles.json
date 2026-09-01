@@ -1,0 +1,27 @@
+{
+  "model": "simple_average_ensemble_XGB_CatBoost_LightGBM",
+  "rule": "min_FN_subject_to_acc_floor_and_FP_cap",
+  "acc_floor": 0.72,
+  "fp_cap": 160,
+  "threshold": 0.61,
+  "metrics": {
+    "TN": 335,
+    "FP": 143,
+    "FN": 166,
+    "TP": 706,
+    "accuracy": 0.7711111111111111,
+    "sensitivity": 0.8096330275229358,
+    "specificity": 0.700836820083682,
+    "precision": 0.8315665488810365,
+    "NPV": 0.6686626746506986,
+    "F1": 0.8204532248692621,
+    "balanced_accuracy": 0.7552349238033089,
+    "MCC": 0.5053235948425737
+  },
+  "previous_accuracy_max": {
+    "threshold": 0.42,
+    "FP": 222,
+    "FN": 58,
+    "accuracy": 0.7925925925925926
+  }
+}

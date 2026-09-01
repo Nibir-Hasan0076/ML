@@ -1,10 +1,10 @@
 {
-  "n_fp": 214,
-  "n_fn": 72,
-  "fp_median_age": 0.9924709103353867,
-  "fn_median_age": 1.6779603011635866,
-  "fp_unvaccinated_pct": 0.8598130841121495,
-  "fn_unvaccinated_pct": 0.5416666666666666,
-  "fp_ccc_yes_pct": 0.897196261682243,
-  "fn_ccc_yes_pct": 0.7916666666666666
+  "n_fp": 96,
+  "n_fn": 226,
+  "fp_median_age": 1.5,
+  "fn_median_age": 1.299110198494182,
+  "fp_unvaccinated_pct": 0.90625,
+  "fn_unvaccinated_pct": 0.6548672566371682,
+  "fp_ccc_yes_pct": 0.9375,
+  "fn_ccc_yes_pct": 0.8407079646017699
 }

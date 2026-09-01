@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 SEED = 42
-SHEET = "MR Data"
+SHEET = "Sheet1"
 
 # ---------------------------------------------------------------------------
 # Resolve the raw data path automatically so the same code runs in

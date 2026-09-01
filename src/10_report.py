@@ -21,6 +21,13 @@ def load_json(name):
         return json.load(f)
 
 
+def load_json2(p):
+    if not os.path.exists(p):
+        return {}
+    with open(p) as f:
+        return json.load(f)
+
+
 def main():
     metrics = load_json("final_metrics.json")
     thr = load_json("final_threshold.json").get("threshold")
@@ -32,6 +39,15 @@ def main():
                            header=None)[0].tolist()
     model_cmp = pd.read_csv(os.path.join(P.OUT, "model_comparison.csv"))
     subset = pd.read_csv(os.path.join(P.OUT, "feature_subset_experiment.csv"))
+
+    # Outbreak-level results (Step 14)
+    outbreak_out = os.path.join(P.OUT, "outbreak")
+    outbreak_cmp = None
+    if os.path.exists(os.path.join(outbreak_out, "baseline_comparison.csv")):
+        outbreak_cmp = pd.read_csv(
+            os.path.join(outbreak_out, "baseline_comparison.csv"))
+    outbreak_ens = load_json2(os.path.join(outbreak_out,
+                                           "upazila_ensemble_result.json"))
 
     L = []
     A = L.append
@@ -144,7 +160,43 @@ def main():
       "confirmed measles and discarded/rubella suspected cases (AUC plateaus "
       "~0.85); this is real generalisation, not an inflated score.\n")
 
-    A("\n## 11. Artefacts\n")
+    A("\n## 11. Outbreak-level prediction (division / district / upazila)\n")
+    if outbreak_cmp is not None and not outbreak_cmp.empty:
+        A("Unit-of-analysis = **confirmed-measles cases aggregated to "
+          "spatial-unit x epi-week cells** (2026, weeks 1-22). Outbreak cell = "
+          ">= 2 confirmed cases that week. Model is **cross-sectional "
+          "outbreak-status per cell** (uses prior-week lags + season + region, "
+          "no leakage) -- NOT a multi-year forecast because the data cover only "
+          "a single year.\n")
+        A("\n| Level | Model | ROC-AUC | PR-AUC | Accuracy | F1 | MCC |\n")
+        A("|-------|-------|--------:|-------:|---------:|---:|----:|\n")
+        for _, r in outbreak_cmp.sort_values(
+                ["level", "roc_auc"], ascending=[True, False]).iterrows():
+            A(f"| {r['level']} | {r['model']} | {r['roc_auc']:.3f} | "
+              f"{r['pr_auc']:.3f} | {r['accuracy']:.3f} | {r['f1']:.3f} | "
+              f"{r['mcc']:.3f} |\n")
+        ob = outbreak_ens.get("metrics_oof", {})
+        if ob:
+            A("\n**Combined best model @ upazila level** "
+              "(out-of-fold, XGB+CatBoost+LightGBM ensemble):\n")
+            A(f"- Threshold = **{outbreak_ens.get('threshold')}** "
+              f"(max accuracy on OOF)\n")
+            A(f"- ROC-AUC = **{ob.get('ROC_AUC'):.3f}**, "
+              f"PR-AUC = **{ob.get('PR_AUC'):.3f}**\n")
+            A(f"- Accuracy = **{ob.get('accuracy'):.3f}**, "
+              f"Sensitivity = **{ob.get('sensitivity'):.3f}**, "
+              f"Specificity = **{ob.get('specificity'):.3f}**, "
+              f"F1 = **{ob.get('F1'):.3f}**, MCC = **{ob.get('MCC'):.3f}**\n")
+            A("\n**Caveat:** upazila outbreak cells are only ~7% of all "
+              "unit-wks, so accuracy is high while sensitivity/PR-AUC are "
+              "low -- the model is specific but not yet sensitive at this "
+              "fine granularity.\n")
+        A("\nFigures: `figures/outbreak/roc_{DIVISION,DISTRICT,UPZMUNCC}.png`, "
+          "`figures/outbreak/upazila_ensemble_roc.png`.\n")
+    else:
+        A("(Outbreak step 14 was not run -- no results found.)\n")
+
+    A("\n## 12. Artefacts\n")
     A("`model/final_xgb_model.joblib`, `model/preprocessor.joblib`, "
       "`output/final_feature_list.csv`, `output/final_threshold.json`, "
       "`output/final_metrics.json`, `output/model_comparison.csv`, "
@@ -187,6 +239,30 @@ def main():
     print(f"TEST FALSE POSITIVES : {em.get('FP')}")
     print(f"TEST FALSE NEGATIVES : {em.get('FN')}")
     print("=" * 70)
+
+    # ---- Outbreak summary ----
+    ob = outbreak_ens.get("metrics_oof", {})
+    if ob:
+        print("\n" + "=" * 70)
+        print("OUTBREAK-LEVEL SUMMARY (Step 14, upazila ensemble)")
+        print("=" * 70)
+        print(f"UNIT                 : upazila x epi-week (2026, weeks 1-22)")
+        print(f"OUTBREAK DEFINITION  : >= 2 confirmed measles cases / unit-week")
+        print(f"OUTBREAK CELLS       : {outbreak_ens.get('outbreak_cells')} "
+              f"of {outbreak_ens.get('n_cells')} "
+              f"({100*outbreak_ens.get('outbreak_cells', 0)/max(1,outbreak_ens.get('n_cells',1)):.1f}%)")
+        print(f"ENSEMBLE             : XGBoost + CatBoost + LightGBM "
+              f"(threshold {outbreak_ens.get('threshold')})")
+        print(f"OOF ROC-AUC          : {ob.get('ROC_AUC', 0):.4f}")
+        print(f"OOF PR-AUC           : {ob.get('PR_AUC', 0):.4f}")
+        print(f"OOF ACCURACY         : {ob.get('accuracy', 0):.4f}")
+        print(f"OOF SENSITIVITY      : {ob.get('sensitivity', 0):.4f}")
+        print(f"OOF SPECIFICITY      : {ob.get('specificity', 0):.4f}")
+        print(f"OOF F1 / MCC         : {ob.get('F1', 0):.4f} / {ob.get('MCC', 0):.4f} "
+              f"(FN={ob.get('FN')})")
+        print("NOTE: within-year status model; NOT a multi-year forecast "
+              "(single-year data).")
+        print("=" * 70)
 
 
 if __name__ == "__main__":

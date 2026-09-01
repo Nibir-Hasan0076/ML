@@ -34,5 +34,6 @@ if __name__ == "__main__":
     run("08_error_analysis.py", "8. ERROR ANALYSIS")
     run("09_robustness.py", "9. ROBUSTNESS CHECK")
     run("11_ensemble.py", "11. IMPROVED MODEL - SIMPLE-AVERAGE ENSEMBLE")
+    run("14_outbreak_model.py", "14. OUTBREAK-LEVEL PREDICTION (division/district/upazila)")
     run("10_report.py", "10. FINAL REPORT & SUMMARY")
     print("\nALL STEPS COMPLETE. See output/final_report.md")

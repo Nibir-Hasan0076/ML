@@ -1,23 +1,23 @@
 {
   "model": "simple_average_ensemble_XGB_CatBoost_LightGBM",
-  "threshold": 0.42,
+  "threshold": 0.48,
   "metrics": {
-    "TN": 256,
-    "FP": 222,
-    "FN": 58,
-    "TP": 814,
-    "accuracy": 0.7925925925925926,
-    "ROC_AUC": 0.8510014010978466,
-    "PR_AUC": 0.9135084842349301,
-    "sensitivity": 0.9334862385321101,
-    "specificity": 0.5355648535564853,
-    "precision": 0.7857142857142857,
-    "NPV": 0.8152866242038217,
-    "F1": 0.8532494758909852,
-    "balanced_accuracy": 0.7345255460442977,
-    "MCC": 0.5309426834822454,
-    "brier": 0.14723967344638575
+    "TN": 294,
+    "FP": 175,
+    "FN": 101,
+    "TP": 762,
+    "accuracy": 0.7927927927927928,
+    "ROC_AUC": 0.8488660817745406,
+    "PR_AUC": 0.9024417644358941,
+    "sensitivity": 0.8829663962920047,
+    "specificity": 0.6268656716417911,
+    "precision": 0.8132337246531484,
+    "NPV": 0.7443037974683544,
+    "F1": 0.8466666666666666,
+    "balanced_accuracy": 0.7549160339668979,
+    "MCC": 0.5331514867782796,
+    "brier": 0.14740196837248057
   },
-  "baseline_acc": 0.7881481481481482,
-  "baseline_threshold": 0.44
+  "baseline_acc": 0.7792792792792793,
+  "baseline_threshold": 0.38
 }
